@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ward — counterparty check for agents that pay</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <svg class="mark" viewBox="0 0 54 64" aria-hidden="true">
+          <path d="M27 2 52 14v22c0 14-10 22-25 26C12 58 2 50 2 36V14L27 2z" fill="none" stroke="#d6a15a" stroke-width="2"/>
+          <circle cx="27" cy="32" r="4" fill="#d6a15a"/>
+        </svg>
+        <div>
+          <h1>Ward</h1>
+        </div>
+        <p class="lede">
+          Before an agent pays, it asks Ward about the receiver. Ward answers allow, warn, or block, with the reasons.
+          Block never reaches the signer. Warn waits for a person. The agent holds a function-call key scoped to one method on one treasury, so a bypass still cannot move NEAR.
+        </p>
+      </header>
+
+      <section>
+        <h2>Attack demo</h2>
+        <p>A prompt-injected agent tries to pay <span class="block">known-bad.ward.testnet</span>. The log is the same text as <code>npm run demo</code>.</p>
+        <button id="attack" type="button">Run the attack</button>
+        <pre id="attack-log">The log will appear here.</pre>
+      </section>
+
+      <section>
+        <h2>Check a receiver</h2>
+        <form id="check-form">
+          <label>Receiver
+            <input id="receiver" name="receiver" value="merchant.example.testnet" required />
+          </label>
+          <label>Amount (NEAR)
+            <input id="amount" name="amount" value="1" required />
+          </label>
+          <button type="submit">Check</button>
+        </form>
+        <div class="row" style="margin-top: 10px">
+          <button class="ghost" type="button" data-receiver="merchant.example.testnet">Merchant</button>
+          <button class="ghost" type="button" data-receiver="young-shop.example.testnet">Young account</button>
+          <button class="ghost" type="button" data-receiver="proxy.example.testnet">Code changed</button>
+          <button class="ghost" type="button" data-receiver="known-bad.ward.testnet">Known bad</button>
+        </div>
+        <pre id="check-log">No check yet.</pre>
+        <div class="row" id="human-row" hidden>
+          <button id="approve" type="button">Human approves</button>
+          <button id="reject" class="ghost" type="button">Human rejects</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Signals and where they come from</h2>
+        <table>
+          <thead>
+            <tr><th>Signal</th><th>Source</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Account age</td><td>NearBlocks <code>GET /v1/account/{id}</code>, <code>created.block_timestamp</code> in nanoseconds.</td></tr>
+            <tr><td>Activity</td><td>NearBlocks <code>GET /v1/account/{id}/txns/count</code>.</td></tr>
+            <tr><td>Contract or not</td><td>NEAR RPC <code>view_account</code>. The empty code hash means there is no contract.</td></tr>
+            <tr><td>Code changed</td><td>Ward's own code-hash history, plus a NearBlocks receipts page when it contains <code>DEPLOY_CONTRACT</code>.</td></tr>
+            <tr><td>Full-access key</td><td>NEAR RPC <code>view_access_key_list</code>, first 100 keys. A contract with a full-access key can be rewritten.</td></tr>
+            <tr><td>Prior payments</td><td>This agent's authorization rows in Supabase, or the memory store.</td></tr>
+            <tr><td>Shared blocklist</td><td>Ward contract <code>get_target</code>, cached in Supabase. One report warns. Three reports, or an owner confirmation, block.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>What the agent key cannot do</h2>
+        <ul>
+          <li>It can call only <code>pay</code> on the treasury contract.</li>
+          <li>It cannot attach NEAR. The treasury spends its own balance.</li>
+          <li>It cannot transfer, add keys, deploy code, or call <code>withdraw</code>, <code>confirm</code>, or <code>report</code>.</li>
+          <li>Its gas allowance is finite. At zero, the key is dead and topping up the account does not revive it.</li>
+          <li>The contract sees the account, not which key signed. The method list is what keeps the agent out of the owner methods.</li>
+        </ul>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
