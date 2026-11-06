@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { normalizeAccountId } from "./account.js";
 import { runAttackDemo } from "./demo/attack.js";
@@ -10,6 +7,7 @@ import { guardedPay, RecordingSigner } from "./guard.js";
 import { payCommand, reportCommand } from "./nearcli.js";
 import type { WardService } from "./service.js";
 import type { Store } from "./store.js";
+import { appJs, faviconSvg, indexHtml, stylesCss } from "./site-assets.js";
 import { ChainUnavailable } from "./types.js";
 
 export interface AppDeps {
@@ -23,13 +21,11 @@ export interface AppDeps {
   now?: () => number;
 }
 
-const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../web");
-
 const files: Record<string, { type: string; body: string }> = {
-  "/": { type: "text/html; charset=utf-8", body: readFileSync(path.join(webRoot, "index.html"), "utf8") },
-  "/styles.css": { type: "text/css; charset=utf-8", body: readFileSync(path.join(webRoot, "styles.css"), "utf8") },
-  "/app.js": { type: "text/javascript; charset=utf-8", body: readFileSync(path.join(webRoot, "app.js"), "utf8") },
-  "/favicon.svg": { type: "image/svg+xml", body: readFileSync(path.join(webRoot, "favicon.svg"), "utf8") }
+  "/": { type: "text/html; charset=utf-8", body: indexHtml },
+  "/styles.css": { type: "text/css; charset=utf-8", body: stylesCss },
+  "/app.js": { type: "text/javascript; charset=utf-8", body: appJs },
+  "/favicon.svg": { type: "image/svg+xml", body: faviconSvg }
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

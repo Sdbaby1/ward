@@ -8,9 +8,12 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node scripts/embed-public.mjs",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
+    "prebuild": "node scripts/embed-public.mjs",
     "build": "tsc -p tsconfig.json",
+    "pretest": "node scripts/embed-public.mjs",
     "test": "vitest run",
     "demo": "tsx src/demo/attack.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

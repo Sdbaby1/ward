@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createApp } from "./app.js";
+import { createApp } from "./http.js";
 import { createDemoChain, createDemoStore, DEMO_AGENT, DEMO_ALLOWANCE, DEMO_KNOWN_BAD, DEMO_MAX_PER_TX, DEMO_MERCHANT, DEMO_PUBLIC_KEY, DEMO_TREASURY, DEMO_YOUNG } from "./fixtures.js";
 import type { AgentKey } from "./guard.js";
 import { createWardService } from "./service.js";

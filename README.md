@@ -33,6 +33,8 @@ npm start
 
 Open http://localhost:8787 and press **Run the attack**.
 
+The same dashboard is hosted at https://ward-gilt.vercel.app. That deployment uses the built-in fixtures, so the attack demo runs there with no keys.
+
 You should see:
 
 ```text
@@ -277,7 +279,7 @@ src/app.ts             HTTP and dashboard
 src/demo/attack.ts     prompt-injection demo
 contracts/ward         treasury and blocklist
 supabase/schema.sql    cache tables
-web/                   dashboard
+public/                dashboard, also served by Vercel
 ```
 
 ## License

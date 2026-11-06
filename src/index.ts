@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { pathToFileURL } from "node:url";
-import { createApp, type AppDeps } from "./app.js";
+import { Hono } from "hono";
+import { createApp, type AppDeps } from "./http.js";
 import { RpcChainReader } from "./chain.js";
 import { configFromEnv, type WardConfig } from "./config.js";
 import { createDemoChain, createDemoStore } from "./fixtures.js";
@@ -62,9 +63,16 @@ function isDirectRun(): boolean {
   return import.meta.url === pathToFileURL(entry).href;
 }
 
+const deps = await buildApp();
+const app = createApp(deps);
+
+if (!(app instanceof Hono)) {
+  throw new Error("Ward did not create a Hono application.");
+}
+
+export default app;
+
 if (isDirectRun()) {
-  const deps = await buildApp();
-  const app = createApp(deps);
   const config = configFromEnv();
   serve({ fetch: app.fetch, port: config.port }, (info) => {
     process.stdout.write(`Ward listening on http://localhost:${info.port}\n`);
