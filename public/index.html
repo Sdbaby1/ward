@@ -4,85 +4,264 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ward — counterparty check for agents that pay</title>
+    <meta
+      name="description"
+      content="Ward checks a NEAR receiver before an agent pays. The answer is allow, warn, or block, with the reasons."
+    />
     <link rel="icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <svg class="mark" viewBox="0 0 54 64" aria-hidden="true">
-          <path d="M27 2 52 14v22c0 14-10 22-25 26C12 58 2 50 2 36V14L27 2z" fill="none" stroke="#d6a15a" stroke-width="2"/>
-          <circle cx="27" cy="32" r="4" fill="#d6a15a"/>
-        </svg>
-        <div>
-          <h1>Ward</h1>
-        </div>
-        <p class="lede">
-          Before an agent pays, it asks Ward about the receiver. Ward answers allow, warn, or block, with the reasons.
-          Block never reaches the signer. Warn waits for a person. The agent holds a function-call key scoped to one method on one treasury, so a bypass still cannot move NEAR.
-        </p>
+    <a class="skip" href="#check">Skip to the check</a>
+    <div class="shell">
+      <header class="sidebar">
+        <a class="brand" href="#top">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <path
+              d="M5 8.5 11.2 24.5 16 13 20.8 24.5 27 8.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="brand-text">
+            <span class="brand-name">Ward</span>
+            <span class="brand-role">Counterparty desk</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="On this page">
+          <a href="#check">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.25" />
+              <path d="M16 16.5 20 20.5" />
+            </svg>
+            Check
+          </a>
+          <a href="#attack-demo">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 4.5 20.5 19H3.5L12 4.5z" />
+              <path d="M12 10v4.2" />
+              <path d="M12 16.8h.01" />
+            </svg>
+            Attack
+          </a>
+          <a href="#signals">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 7h14M5 12h14M5 17h9" />
+            </svg>
+            Signals
+          </a>
+          <a href="#limits">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="8" cy="14" r="3.25" />
+              <path d="M11 14h9v2.2h-2.2V14" />
+              <path d="M16.2 14v2.2" />
+            </svg>
+            Key limits
+          </a>
+        </nav>
+        <p class="side-note">Fixture chain on this deployment. No keys required.</p>
       </header>
 
-      <section>
-        <h2>Attack demo</h2>
-        <p>A prompt-injected agent tries to pay <span class="block">known-bad.ward.testnet</span>. The log is the same text as <code>npm run demo</code>.</p>
-        <button id="attack" type="button">Run the attack</button>
-        <pre id="attack-log">The log will appear here.</pre>
-      </section>
+      <main class="canvas" id="top">
+        <div class="canvas-inner">
+          <header class="intro">
+            <p class="kicker">NEAR testnet · AI Security &amp; Defense</p>
+            <h1>Check the receiver before the agent pays.</h1>
+            <p class="lede">
+              Ward answers allow, warn, or block, and it returns the reasons. Block never reaches the signer.
+              Warn waits for a person. The agent holds a function-call key scoped to <code>pay</code> on one
+              treasury, so a bypass still cannot move NEAR.
+            </p>
+          </header>
 
-      <section>
-        <h2>Check a receiver</h2>
-        <form id="check-form">
-          <label>Receiver
-            <input id="receiver" name="receiver" value="merchant.example.testnet" required />
-          </label>
-          <label>Amount (NEAR)
-            <input id="amount" name="amount" value="1" required />
-          </label>
-          <button type="submit">Check</button>
-        </form>
-        <div class="row" style="margin-top: 10px">
-          <button class="ghost" type="button" data-receiver="merchant.example.testnet">Merchant</button>
-          <button class="ghost" type="button" data-receiver="young-shop.example.testnet">Young account</button>
-          <button class="ghost" type="button" data-receiver="proxy.example.testnet">Code changed</button>
-          <button class="ghost" type="button" data-receiver="known-bad.ward.testnet">Known bad</button>
+          <ul class="metrics" aria-label="How Ward decides">
+            <li>
+              <p class="status allow"><span class="status-mark" aria-hidden="true"></span>Allow</p>
+              <p>Known receiver, stable code, no blocklist hit. The agent pays.</p>
+            </li>
+            <li>
+              <p class="status warn"><span class="status-mark" aria-hidden="true"></span>Warn</p>
+              <p>Young account, recent code change, or a single report. A person decides.</p>
+            </li>
+            <li>
+              <p class="status block"><span class="status-mark" aria-hidden="true"></span>Block</p>
+              <p>Missing account, confirmed report, or three reports. The wrapper does not sign.</p>
+            </li>
+          </ul>
+
+          <div class="workspace">
+            <section class="panel" id="check" aria-labelledby="check-title">
+              <div class="panel-head">
+                <p class="index">01</p>
+                <div>
+                  <h2 id="check-title">Check a receiver</h2>
+                  <p>The agent is <code>pay-agent.ward.testnet</code>. The call is <code>pay</code> with no attached deposit.</p>
+                </div>
+              </div>
+
+              <form id="check-form">
+                <div class="fields">
+                  <label class="field" for="receiver">
+                    <span>Receiver</span>
+                    <input
+                      id="receiver"
+                      name="receiver"
+                      value="merchant.example.testnet"
+                      autocomplete="off"
+                      spellcheck="false"
+                      required
+                    />
+                  </label>
+                  <label class="field" for="amount">
+                    <span>Amount</span>
+                    <input
+                      id="amount"
+                      name="amount"
+                      value="1"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      aria-describedby="amount-hint"
+                      required
+                    />
+                  </label>
+                  <button class="primary" type="submit">Check</button>
+                </div>
+                <p class="hint" id="amount-hint">NEAR. At most 24 decimal places.</p>
+                <p class="field-error" id="amount-error" role="alert" hidden></p>
+              </form>
+
+              <div class="cases" role="group" aria-label="Fixture receivers">
+                <button class="case" type="button" data-receiver="merchant.example.testnet">
+                  <span class="case-name">Merchant</span>
+                  <span class="case-id">merchant.example.testnet</span>
+                </button>
+                <button class="case" type="button" data-receiver="young-shop.example.testnet">
+                  <span class="case-name">Young account</span>
+                  <span class="case-id">young-shop.example.testnet</span>
+                </button>
+                <button class="case" type="button" data-receiver="proxy.example.testnet">
+                  <span class="case-name">Code changed</span>
+                  <span class="case-id">proxy.example.testnet</span>
+                </button>
+                <button class="case" type="button" data-receiver="known-bad.ward.testnet">
+                  <span class="case-name">Known bad</span>
+                  <span class="case-id">known-bad.ward.testnet</span>
+                </button>
+              </div>
+
+              <div id="verdict" class="verdict" hidden></div>
+              <div class="human" id="human-row" hidden>
+                <p>This is a warning. Nothing is signed until a person approves or rejects it.</p>
+                <div class="human-actions">
+                  <button id="approve" type="button">Human approves</button>
+                  <button id="reject" type="button">Human rejects</button>
+                </div>
+              </div>
+              <pre id="check-log">No check yet.</pre>
+            </section>
+
+            <section class="panel" id="attack-demo" aria-labelledby="attack-title">
+              <div class="panel-head">
+                <p class="index">02</p>
+                <div>
+                  <h2 id="attack-title">Attack demo</h2>
+                  <p>
+                    A prompt-injected agent tries to pay <strong class="block-name">known-bad.ward.testnet</strong>.
+                    The log matches <code>npm run demo</code>.
+                  </p>
+                </div>
+              </div>
+              <p class="expect">A stopped payment prints <code>PAYMENT STOPPED</code> and <code>signer.called: false</code>.</p>
+              <button id="attack" class="primary" type="button">Run the attack</button>
+              <pre id="attack-log">The log will appear here.</pre>
+            </section>
+
+            <section class="panel wide" id="signals" aria-labelledby="signals-title">
+              <div class="panel-head">
+                <p class="index">03</p>
+                <div>
+                  <h2 id="signals-title">Signals and where they come from</h2>
+                  <p>Each reason names a source. The score does not come from a model.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Signal</th>
+                      <th scope="col">Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Account age</td>
+                      <td>NearBlocks <code>GET /v1/account/{id}</code>, <code>created.block_timestamp</code> in nanoseconds.</td>
+                    </tr>
+                    <tr>
+                      <td>Activity</td>
+                      <td>NearBlocks <code>GET /v1/account/{id}/txns/count</code>.</td>
+                    </tr>
+                    <tr>
+                      <td>Contract or not</td>
+                      <td>NEAR RPC <code>view_account</code>. The empty code hash means there is no contract.</td>
+                    </tr>
+                    <tr>
+                      <td>Code changed</td>
+                      <td>Ward's own code-hash history, plus a NearBlocks receipts page when it contains <code>DEPLOY_CONTRACT</code>.</td>
+                    </tr>
+                    <tr>
+                      <td>Full-access key</td>
+                      <td>NEAR RPC <code>view_access_key_list</code>, first 100 keys. A contract with a full-access key can be rewritten.</td>
+                    </tr>
+                    <tr>
+                      <td>Prior payments</td>
+                      <td>This agent's authorization rows in Supabase, or the memory store.</td>
+                    </tr>
+                    <tr>
+                      <td>Shared blocklist</td>
+                      <td>Ward contract <code>get_target</code>, cached in Supabase. One report warns. Three reports, or an owner confirmation, block.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel wide" id="limits" aria-labelledby="limits-title">
+              <div class="panel-head">
+                <p class="index">04</p>
+                <div>
+                  <h2 id="limits-title">What the agent key cannot do</h2>
+                  <p>The contract sees the account, not which key signed. The method list keeps the agent out of the owner methods.</p>
+                </div>
+              </div>
+              <ul class="limits">
+                <li>It can call only <code>pay</code> on the treasury contract.</li>
+                <li>It cannot attach NEAR. The treasury spends its own balance.</li>
+                <li>It cannot transfer, add keys, deploy code, or call <code>withdraw</code>, <code>confirm</code>, or <code>report</code>.</li>
+                <li>Its gas allowance is finite. At zero, the key is dead and topping up the account does not revive it.</li>
+              </ul>
+            </section>
+          </div>
+
+          <footer class="colophon">
+            <p>Ward for the NEAR Hackathon, AI Security &amp; Defense.</p>
+            <p class="colophon-links">
+              <a href="https://github.com/Sdbaby1/ward">Source</a>
+              <a href="https://nearhackathon.com">Hackathon</a>
+            </p>
+          </footer>
         </div>
-        <pre id="check-log">No check yet.</pre>
-        <div class="row" id="human-row" hidden>
-          <button id="approve" type="button">Human approves</button>
-          <button id="reject" class="ghost" type="button">Human rejects</button>
-        </div>
-      </section>
-
-      <section>
-        <h2>Signals and where they come from</h2>
-        <table>
-          <thead>
-            <tr><th>Signal</th><th>Source</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Account age</td><td>NearBlocks <code>GET /v1/account/{id}</code>, <code>created.block_timestamp</code> in nanoseconds.</td></tr>
-            <tr><td>Activity</td><td>NearBlocks <code>GET /v1/account/{id}/txns/count</code>.</td></tr>
-            <tr><td>Contract or not</td><td>NEAR RPC <code>view_account</code>. The empty code hash means there is no contract.</td></tr>
-            <tr><td>Code changed</td><td>Ward's own code-hash history, plus a NearBlocks receipts page when it contains <code>DEPLOY_CONTRACT</code>.</td></tr>
-            <tr><td>Full-access key</td><td>NEAR RPC <code>view_access_key_list</code>, first 100 keys. A contract with a full-access key can be rewritten.</td></tr>
-            <tr><td>Prior payments</td><td>This agent's authorization rows in Supabase, or the memory store.</td></tr>
-            <tr><td>Shared blocklist</td><td>Ward contract <code>get_target</code>, cached in Supabase. One report warns. Three reports, or an owner confirmation, block.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section>
-        <h2>What the agent key cannot do</h2>
-        <ul>
-          <li>It can call only <code>pay</code> on the treasury contract.</li>
-          <li>It cannot attach NEAR. The treasury spends its own balance.</li>
-          <li>It cannot transfer, add keys, deploy code, or call <code>withdraw</code>, <code>confirm</code>, or <code>report</code>.</li>
-          <li>Its gas allowance is finite. At zero, the key is dead and topping up the account does not revive it.</li>
-          <li>The contract sees the account, not which key signed. The method list is what keeps the agent out of the owner methods.</li>
-        </ul>
-      </section>
-    </main>
+      </main>
+    </div>
     <script src="/app.js"></script>
   </body>
 </html>
