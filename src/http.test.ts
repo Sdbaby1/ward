@@ -66,6 +66,8 @@ describe("HTTP app", () => {
     expect(blocked.status).toBe(200);
     const blockedBody = await blocked.json();
     expect(blockedBody.decision).toBe("block");
+    expect(blockedBody.phase).toBe("stopped");
+    expect(blockedBody.next).toBe("stop");
 
     const pay = await app.request("/api/v1/pay", {
       method: "POST",
@@ -77,7 +79,10 @@ describe("HTTP app", () => {
       })
     });
     expect(pay.status).toBe(403);
-    expect((await pay.json()).signed).toBe(false);
+    const stoppedBody = await pay.json();
+    expect(stoppedBody.signed).toBe(false);
+    expect(stoppedBody.phase).toBe("stopped");
+    expect(stoppedBody.next).toBe("stop");
 
     const allowed = await app.request("/api/v1/pay", {
       method: "POST",
@@ -90,6 +95,8 @@ describe("HTTP app", () => {
     expect(allowed.status).toBe(200);
     const allowedBody = await allowed.json();
     expect(allowedBody.signed).toBe(true);
+    expect(allowedBody.phase).toBe("signed");
+    expect(allowedBody.next).toBe("none");
     expect(allowedBody.nearCli).toContain("call-function as-transaction");
     expect(allowedBody.nearCli).toContain(DEMO_MERCHANT);
   });
@@ -105,6 +112,9 @@ describe("HTTP app", () => {
       })
     });
     expect(warn.status).toBe(409);
+    const rejectedBody = await warn.json();
+    expect(rejectedBody.phase).toBe("rejected");
+    expect(rejectedBody.next).toBe("stop");
     const approved = await app.request("/api/v1/pay", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -196,6 +206,8 @@ describe("HTTP app", () => {
       })
     });
     expect(pay.status).toBe(403);
-    expect((await pay.json()).signed).toBe(false);
+    const stopped = await pay.json();
+    expect(stopped.signed).toBe(false);
+    expect(stopped.next).toBe("retry");
   });
 });

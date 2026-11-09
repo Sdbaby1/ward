@@ -3,6 +3,7 @@ import { normalizeAccountId } from "./account.js";
 import { runAttackDemo } from "./demo/attack.js";
 import { isEvidence, isReason } from "./evidence.js";
 import type { AgentKey } from "./guard.js";
+import { stepFromDecision, stepFromGuard } from "./flow.js";
 import { guardedPay, RecordingSigner } from "./guard.js";
 import { payCommand, reportCommand } from "./nearcli.js";
 import type { WardService } from "./service.js";
@@ -69,7 +70,7 @@ export function createApp(deps: AppDeps): Hono {
         },
         deps.now ? deps.now() : Date.now()
       );
-      return c.json(result);
+      return c.json({ ...result, ...stepFromDecision(result.decision) });
     } catch (error) {
       return failure(c, error);
     }
@@ -80,7 +81,9 @@ export function createApp(deps: AppDeps): Hono {
     if (!agentId) return c.json({ error: "agent query is required" }, 400);
     try {
       const checks = await deps.store.listChecks(normalizeAccountId(agentId), 20);
-      return c.json({ checks });
+      return c.json({
+        checks: checks.map((check) => ({ ...check, ...stepFromDecision(check.decision) }))
+      });
     } catch (error) {
       return failure(c, error);
     }
@@ -196,7 +199,8 @@ export function createApp(deps: AppDeps): Hono {
                   amountYocto,
                   network: deps.network
                 })
-              : null
+              : null,
+          ...stepFromGuard(result)
         },
         status
       );

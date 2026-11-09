@@ -355,6 +355,15 @@ input[aria-invalid="true"] {
 
 .hint { color: var(--color-muted-foreground); }
 
+.flow-note {
+  margin: var(--space-4) 0 0;
+  color: var(--color-foreground);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.verdict[data-stale="true"] { border-style: dashed; }
+
 .field-error { color: var(--color-block); font-weight: 600; }
 
 button {

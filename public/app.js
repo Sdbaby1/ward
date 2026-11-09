@@ -7,8 +7,35 @@ const receiverInput = document.querySelector("#receiver");
 const amountInput = document.querySelector("#amount");
 const amountError = document.querySelector("#amount-error");
 const verdict = document.querySelector("#verdict");
+const flowNote = document.querySelector("#flow-note");
 const submitButton = checkForm.querySelector("button[type='submit']");
+const approveButton = document.querySelector("#approve");
+const rejectButton = document.querySelector("#reject");
 const caseButtons = [...document.querySelectorAll("[data-receiver]")];
+
+const desk = { phase: "ready", subject: null, body: null };
+
+const NOTE = {
+  ready: "Next: check a receiver. Block never reaches the signer.",
+  invalid: "Next: fix the amount, then check again.",
+  checking: "Checking this receiver.",
+  paying: "Sending the person's decision. The signer waits.",
+  stale: "The receiver or amount changed. Check again. The previous result no longer applies.",
+  failed: "The request did not finish. Try again.",
+  clear: "Next: the agent may pay. No person is required.",
+  awaiting_human: "Next: a person approves or rejects. Nothing is signed until then.",
+  signed: "Signed. This payment is finished.",
+  rejected: "Not signed. A person rejected the warning.",
+  stopped: "Stopped. The signer is not called."
+};
+
+const NEXT_NOTE = {
+  pay: NOTE.clear,
+  ask_human: NOTE.awaiting_human,
+  stop: NOTE.stopped,
+  retry: "Next: retry the check. The last one failed closed.",
+  none: "Next: nothing. This payment is finished."
+};
 
 const ICONS = {
   allow:
@@ -42,12 +69,13 @@ caseButtons.forEach((button) => {
 
 checkForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  humanRow.hidden = true;
   await runCheck();
 });
 
-document.querySelector("#approve").addEventListener("click", () => runPay(true));
-document.querySelector("#reject").addEventListener("click", () => runPay(false));
+approveButton.addEventListener("click", () => runPay(true));
+rejectButton.addEventListener("click", () => runPay(false));
+receiverInput.addEventListener("input", syncSubject);
+amountInput.addEventListener("input", syncSubject);
 
 markCurrentSection();
 
@@ -85,25 +113,86 @@ function setAmountError(message) {
   amountInput.focus();
 }
 
-function setCheckBusy(busy) {
-  setBusy(submitButton, busy, "Checking...");
+function currentSubject() {
+  return { receiver: receiverInput.value, amount: amountInput.value };
+}
+
+function sameSubject(subject) {
+  return Boolean(subject) && subject.receiver === receiverInput.value && subject.amount === amountInput.value;
+}
+
+function phaseFromBody(body) {
+  if (!body || typeof body !== "object") return "failed";
+  if (
+    body.phase === "clear" ||
+    body.phase === "awaiting_human" ||
+    body.phase === "signed" ||
+    body.phase === "rejected" ||
+    body.phase === "stopped"
+  ) {
+    return body.phase;
+  }
+  const decision = body.decision || body.check?.decision;
+  if (body.outcome === "signed" || body.signed === true) return "signed";
+  if (body.outcome === "human_rejected") return "rejected";
+  if (decision === "warn") return "awaiting_human";
+  if (decision === "block" || body.outcome === "stopped") return "stopped";
+  if (decision === "allow") return "clear";
+  return "failed";
+}
+
+function renderDesk() {
+  const busy = desk.phase === "checking" || desk.phase === "paying";
+  setBusy(submitButton, busy, desk.phase === "paying" ? "Sending..." : "Checking...");
   for (const button of caseButtons) button.disabled = busy;
-  document.querySelector("#approve").disabled = busy;
-  document.querySelector("#reject").disabled = busy;
+  const canDecide = desk.phase === "awaiting_human" && !busy;
+  approveButton.disabled = !canDecide;
+  rejectButton.disabled = !canDecide;
+  humanRow.hidden = desk.phase !== "awaiting_human";
+
+  const showsVerdict =
+    desk.body &&
+    (desk.phase === "clear" ||
+      desk.phase === "awaiting_human" ||
+      desk.phase === "signed" ||
+      desk.phase === "rejected" ||
+      desk.phase === "stopped" ||
+      desk.phase === "stale");
+  if (showsVerdict) {
+    renderVerdict(desk.body);
+    verdict.dataset.stale = desk.phase === "stale" ? "true" : "false";
+  } else if (desk.phase !== "paying") {
+    verdict.hidden = true;
+    verdict.replaceChildren();
+    delete verdict.dataset.stale;
+  }
+
+  const next = desk.body && desk.phase !== "stale" && desk.phase !== "failed" ? desk.body.next : null;
+  flowNote.textContent = (next && NEXT_NOTE[next]) || NOTE[desk.phase] || NOTE.ready;
+}
+
+function syncSubject() {
+  if (!desk.subject || !desk.body) return;
+  if (desk.phase === "checking" || desk.phase === "paying" || desk.phase === "invalid") return;
+  desk.phase = sameSubject(desk.subject) ? phaseFromBody(desk.body) : "stale";
+  renderDesk();
 }
 
 async function runCheck() {
   const amountYocto = yoctoFromNear(amountInput.value);
-  verdict.hidden = true;
   if (amountYocto === null) {
     const message = "Amount must be a NEAR value with at most 24 decimal places.";
     setAmountError(message);
     checkLog.textContent = message;
+    desk.phase = "invalid";
+    desk.body = null;
+    renderDesk();
     return;
   }
   setAmountError("");
+  desk.phase = "checking";
+  renderDesk();
   checkLog.textContent = "Checking...";
-  setCheckBusy(true);
   try {
     const response = await fetch("/api/v1/check", {
       method: "POST",
@@ -118,21 +207,34 @@ async function runCheck() {
     });
     const body = await response.json();
     checkLog.textContent = JSON.stringify(body, null, 2);
-    renderVerdict(body);
-    humanRow.hidden = body.decision !== "warn";
+    if (!response.ok) {
+      desk.phase = "failed";
+      desk.body = body;
+      renderDesk();
+      return;
+    }
+    desk.subject = currentSubject();
+    desk.body = body;
+    desk.phase = phaseFromBody(body);
+    renderDesk();
   } catch {
     checkLog.textContent = "The check did not finish. Try again.";
-    humanRow.hidden = true;
-  } finally {
-    setCheckBusy(false);
+    desk.phase = "failed";
+    desk.body = null;
+    renderDesk();
   }
 }
 
 async function runPay(humanApproved) {
   const amountYocto = yoctoFromNear(amountInput.value);
-  if (amountYocto === null) return;
+  if (amountYocto === null || desk.phase !== "awaiting_human" || !sameSubject(desk.subject)) {
+    desk.phase = "stale";
+    renderDesk();
+    return;
+  }
+  desk.phase = "paying";
+  renderDesk();
   checkLog.textContent = humanApproved ? "Asking the signer..." : "Recording the rejection...";
-  setCheckBusy(true);
   try {
     const response = await fetch("/api/v1/pay", {
       method: "POST",
@@ -145,14 +247,18 @@ async function runPay(humanApproved) {
     });
     const body = await response.json();
     checkLog.textContent = JSON.stringify(body, null, 2);
-    renderVerdict(body);
-    humanRow.hidden = true;
+    desk.subject = currentSubject();
+    desk.body = body;
+    desk.phase = response.ok || body.phase ? phaseFromBody(body) : "failed";
+    renderDesk();
   } catch {
     checkLog.textContent = "The payment did not finish. Try again.";
-  } finally {
-    setCheckBusy(false);
+    desk.phase = desk.body && sameSubject(desk.subject) ? phaseFromBody(desk.body) : "failed";
+    renderDesk();
   }
 }
+
+renderDesk();
 
 function renderVerdict(body) {
   const check = body.check && typeof body.check === "object" ? body.check : body;

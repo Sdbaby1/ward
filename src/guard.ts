@@ -1,4 +1,5 @@
 import { formatNear, isValidAccountId, parseYocto } from "./account.js";
+import { guardTransition } from "./flow.js";
 import type { CheckResult } from "./types.js";
 
 export class KeyScopeError extends Error {
@@ -152,41 +153,38 @@ export async function guardedPay(options: {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const transition = guardTransition({ checkFailed: true });
     return {
-      outcome: "stopped",
-      signed: false,
+      outcome: transition.outcome,
+      signed: transition.signed,
       check: null,
       signature: null,
       detail: `Chain or policy check failed closed: ${message}`
     };
   }
 
-  if (check.decision === "block") {
+  const humanApproved = check.decision === "warn" ? await options.askHuman(check) : false;
+  const transition = guardTransition({
+    checkFailed: false,
+    decision: check.decision,
+    humanApproved
+  });
+  if (!transition.signed) {
     return {
-      outcome: "stopped",
+      outcome: transition.outcome,
       signed: false,
       check,
       signature: null,
-      detail: "Ward returned block. The signer was not called."
+      detail:
+        transition.outcome === "human_rejected"
+          ? "A human rejected the warning. The signer was not called."
+          : "Ward returned block. The signer was not called."
     };
-  }
-
-  if (check.decision === "warn") {
-    const approved = await options.askHuman(check);
-    if (!approved) {
-      return {
-        outcome: "human_rejected",
-        signed: false,
-        check,
-        signature: null,
-        detail: "A human rejected the warning. The signer was not called."
-      };
-    }
   }
 
   const signed = await options.signer.sign(options.intent);
   return {
-    outcome: "signed",
+    outcome: transition.outcome,
     signed: true,
     check,
     signature: signed.signature,

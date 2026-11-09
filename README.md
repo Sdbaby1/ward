@@ -236,11 +236,11 @@ Tables: `observations`, `checks`, `interactions`, `reports`. The report primary 
 | --- | --- | --- |
 | GET | `/` | Dashboard. |
 | GET | `/api/health` | Store kind, chain mode, network. |
-| POST | `/api/v1/check` | `{ decision, score, reasons, signals }`. 503 when the chain is down. |
+| POST | `/api/v1/check` | `{ decision, score, reasons, signals, phase, next }`. `next` is `pay`, `ask_human`, or `stop`. 503 when the chain is down. |
 | GET | `/api/v1/checks?agent=` | Recent checks for that agent. |
 | GET | `/api/v1/reports` | Recent cached reports. |
 | POST | `/api/v1/reports` | Stores an unconfirmed report. `confirmed` is always false. Returns a near-cli line when a contract id is set. |
-| POST | `/api/v1/pay` | Runs the wrapper. 200 signed, 409 human rejected, 403 stopped. |
+| POST | `/api/v1/pay` | Runs the wrapper. 200 signed (`next: none`), 409 human rejected (`next: stop`), 403 stopped (`next: stop`, or `retry` when the check failed closed). |
 | POST | `/api/v1/demo/attack` | Runs the six-scene demo on a fresh fixture world and returns the log. |
 
 ## Tests and CI
