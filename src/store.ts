@@ -99,9 +99,13 @@ export class SupabaseStore implements Store {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.headers = {
       apikey: options.serviceRoleKey,
-      authorization: `Bearer ${options.serviceRoleKey}`,
       "content-type": "application/json"
     };
+    // A legacy service_role key is a JWT and belongs on Authorization too.
+    // An sb_secret key is not a JWT. Sending it as a Bearer token makes Supabase return Invalid JWT.
+    if (options.serviceRoleKey.startsWith("eyJ")) {
+      this.headers.authorization = `Bearer ${options.serviceRoleKey}`;
+    }
   }
 
   private async request(path: string, init: RequestInit): Promise<Response> {

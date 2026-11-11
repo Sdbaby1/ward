@@ -34,14 +34,20 @@ describe("MemoryStore", () => {
 
 describe("SupabaseStore", () => {
   it("writes the service-role REST shape and reads it back", async () => {
-    const calls: { url: string; method: string; body: string | null; prefer: string | null }[] = [];
+    const calls: { url: string; method: string; body: string | null; prefer: string | null; authorization: string | null }[] = [];
     const saved: Record<string, unknown>[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
       const body = typeof init?.body === "string" ? init.body : null;
       const headers = new Headers(init?.headers);
-      calls.push({ url, method, body, prefer: headers.get("prefer") });
+      calls.push({
+        url,
+        method,
+        body,
+        prefer: headers.get("prefer"),
+        authorization: headers.get("authorization")
+      });
       if (method === "POST" && url.includes("/observations")) {
         saved.push(JSON.parse(body ?? "{}"));
         return new Response(null, { status: 201 });
@@ -80,6 +86,7 @@ describe("SupabaseStore", () => {
     expect(loaded?.accountId).toBe("merchant.near");
     expect(loaded?.txCount).toBe(12);
     expect(calls[0]?.url).toContain("https://example.supabase.co/rest/v1/observations");
+    expect(calls[0]?.authorization).toBeNull();
     expect(calls[0]?.prefer).toContain("resolution=merge-duplicates");
     const count = await store.countAuthorizations("agent.near", "merchant.near");
     expect(count).toBe(1);
@@ -126,5 +133,26 @@ describe("SupabaseStore", () => {
     };
     await store.saveCheck(check);
     expect(calls.some((call) => call.url.includes("/checks"))).toBe(true);
+  });
+
+  it("sends a legacy service-role JWT on Authorization and leaves a secret key off that header", async () => {
+    const seen: string[] = [];
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      seen.push(new Headers(init?.headers).get("authorization") ?? "");
+      return new Response("[]", { status: 200 });
+    };
+    const legacy = new SupabaseStore({
+      url: "https://example.supabase.co",
+      serviceRoleKey: "eyJlegacy",
+      fetchImpl
+    });
+    const secret = new SupabaseStore({
+      url: "https://example.supabase.co",
+      serviceRoleKey: "sb_secret_test",
+      fetchImpl
+    });
+    await legacy.listRecentReports(1);
+    await secret.listRecentReports(1);
+    expect(seen).toEqual(["Bearer eyJlegacy", ""]);
   });
 });
